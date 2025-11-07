@@ -1,5 +1,6 @@
 import { scaleFactor } from "./constants";
 import { k } from "./kabommCtx";
+import { displayDialogue } from "./utils";
 
 k.loadSprite("spritesheet", "./spritesheet.png", {
     sliceX: 39,
@@ -18,15 +19,15 @@ k.loadSprite("map", "./map.png")
 k.setBackground(k.Color.fromHex("#311047"))
 
 k.scene("main", async() => {
-    const mapData = await(await fetch("./map.json")).json
+    const mapData = await(await fetch("./map.json")).json()
     const layers = mapData.layers
-    const map = k.make([k.sprite("map"), k.pos(0), k.scale(scaleFactor)])
+    const map = k.add([k.sprite("map"), k.pos(0), k.scale(scaleFactor)])
 
     const player = k.make(
         [
             k.sprite("spritesheet", { anim: "idle-down" }), 
             k.area({ 
-                shape: new k.Rect(k.Vec2(0,3), 10, 10)
+                shape: new k.Rect( new k.Vec2(0,3), 10, 10)
             }),
             k.body(),
             k.anchor("center"),
@@ -46,7 +47,7 @@ k.scene("main", async() => {
             for ( const boundary of layer.objects){
                 map.add([
                     k.area({
-                        shape: new k.Rect(k.Vec2(0), boundary.width, boundary.height),
+                        shape: new k.Rect(new k.Vec2(0), boundary.width, boundary.height),
                     }),
                     k.body({ isStatic: true }),
                     k.pos( boundary.x, boundary.y),
@@ -56,11 +57,36 @@ k.scene("main", async() => {
                 if(boundary.name){
                     player.onCollide(boundary.name, () => {
                         player.isInDialogue = true;
-                        //TODO
+                        displayDialogue("TODO", () => (player.isInDialogue = false))
                     })
+                }
+            }
+            continue
+        }
+
+        if(layer.name === "spawnpoints"){
+            for(const entity of layer.objects){
+                if(entity.name === "player"){
+                    player.pos = new k.Vec2(
+                        (map.pos.x + entity.x) * scaleFactor, 
+                        (map.pos.y + entity.y) * scaleFactor
+                    );
+                    k.add(player);
+                    continue;
                 }
             }
         }
     }
+
+    k.onUpdate(() => {
+        k.camPos(player.pos.x, player.pos.y + 100)
+    })
+
+    k.onMouseDown((mouseBtn) => {
+        if(mouseBtn !== "left" || player.isInDialogue) return;
+
+        const worldMousePos = k.toWorld(k.mousePos());
+        player.moveTo(worldMousePos, player.speed)
+    })
 })
 k.go("main");
